@@ -3,6 +3,11 @@ import transformers
 from transformers import AutoConfig, AutoModel
 
 
+_LABEL_COL = 110
+_PARAM_COL = 14
+_TABLE_WIDTH = _LABEL_COL + _PARAM_COL
+
+
 def _fmt_params(n):
     for unit in ["", "K", "M", "B", "T"]:
         if abs(n) < 1000:
@@ -22,7 +27,7 @@ def _print_module(name, module, depth, max_depth, indent):
     type_name = type(module).__name__
     detail = f" [{extra}]" if extra else ""
     label = f"{'  ' * indent}{name} ({type_name}){detail}"
-    print(f"{label:<70}{_fmt_params(n_params):>14}")
+    print(f"{label:<{_LABEL_COL}}{_fmt_params(n_params):>{_PARAM_COL}}")
 
     if max_depth is not None and depth >= max_depth:
         return
@@ -97,17 +102,17 @@ def look_at(source, max_depth=6, trust_remote_code=False):
     text_config = getattr(config, "text_config", config)
     activation = getattr(text_config, "hidden_act", None) or getattr(text_config, "hidden_activation", "?")
 
-    width = 84
+    width = _TABLE_WIDTH
     print("=" * width)
     print(f"Model      : {source}")
     print(f"Type       : {getattr(config, 'model_type', '?')} / {type(model).__name__}")
     print(f"Attn impl  : {requested_attn} (forced eager for inspection)")
     print(f"Activation : {activation}")
     print("=" * width)
-    print(f"{'Layer (type) [dims]':<70}{'Params':>14}")
+    print(f"{'Layer (type) [dims]':<{_LABEL_COL}}{'Params':>{_PARAM_COL}}")
     print("-" * width)
     _print_module(type(model).__name__, model, 0, max_depth, 0)
     print("=" * width)
-    print(f"{'Total params':<70}{_fmt_params(total):>14}")
-    print(f"{'Total params (raw)':<70}{total:>14,}")
+    print(f"{'Total params':<{_LABEL_COL}}{_fmt_params(total):>{_PARAM_COL}}")
+    print(f"{'Total params (raw)':<{_LABEL_COL}}{total:>{_PARAM_COL},}")
     print("=" * width)
