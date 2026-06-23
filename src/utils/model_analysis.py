@@ -1,34 +1,7 @@
-import os
-from pathlib import Path
-
 import torch
 import transformers
-from dotenv import load_dotenv
 from transformers import AutoConfig, AutoModel
 
-
-
-# ============================================================
-# Constants
-# ============================================================
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-
-# ============================================================
-# Setup
-# ============================================================
-
-def setup():
-    load_dotenv(PROJECT_ROOT / ".env")
-
-    os.environ["HF_TOKEN"]
-
-    print("Setup Complete")
-
-
-# ============================================================
-# Inspect
-# ============================================================
 
 def _fmt_params(n):
     for unit in ["", "K", "M", "B", "T"]:
@@ -38,9 +11,14 @@ def _fmt_params(n):
     return f"{n:.2f}P"
 
 
+def _shape_repr(module):
+    parts = [f"{p_name} {tuple(p.shape)}" for p_name, p in module.named_parameters(recurse=False)]
+    return ", ".join(parts)
+
+
 def _print_module(name, module, depth, max_depth, indent):
     n_params = sum(p.numel() for p in module.parameters())
-    extra = module.extra_repr()
+    extra = module.extra_repr() or _shape_repr(module)
     type_name = type(module).__name__
     detail = f" [{extra}]" if extra else ""
     label = f"{'  ' * indent}{name} ({type_name}){detail}"
