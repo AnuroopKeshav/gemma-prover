@@ -277,8 +277,11 @@ def _transpile_entry(name, source, source_language, provider, model, max_retries
     user_prompt = [source_block]
     lean_code, err, attempt = "", "", 0
     for attempt in range(1, max_retries + 2):  # 1 initial + up to max_retries retries
+        # temperature=0 on retries tends to reproduce the same failed output;
+        # nudge it up so retries actually explore a different fix.
+        temperature = 0.0 if attempt == 1 else 0.7
         lean_code = _strip_fence(call_llm(_SYSTEM_PROMPT, user_prompt, provider=provider, model=model,
-                                           cache_system=True))
+                                           temperature=temperature, cache_system=True))
         ok, err = validate_lean(server, lean_code)
         if ok:
             print(f"[transpile_to_lean] verified {name} (attempt {attempt})")
