@@ -155,10 +155,16 @@ def load_eval_benchmark(name, **kwargs):
 
 _LEAN_MANIFEST_NAME = "manifest.json"
 
-_SESSION_RE = re.compile(r'session\s+"?([\w\-]+)"?\s*=')
+_SESSION_RE = re.compile(r'session\s+"?([\w\-]+)"?\s*(?:\([^)]*\))?\s*=')
 _COMMENT_RE = re.compile(r'\(\*.*?\*\)', re.S)
 _IMPORTS_RE = re.compile(r'^\s*imports\b(.*?)\bbegin\b', re.S | re.M)
 _TOKEN_RE = re.compile(r'"([^"]+)"|(\S+)')
+# ROOT files can have several `theories [options]` blocks; capture each block's
+# body up to the next top-level ROOT keyword (or EOF).
+_THEORIES_RE = re.compile(
+    r'\btheories\b(?:\s*\[[^\]]*\])?(.*?)'
+    r'(?=\btheories\b|\bdocument_files\b|\bexport_files\b|\bglobal_theories\b|\bsession\b|\Z)',
+    re.S)
 
 _SYSTEM_PROMPT = (
     "You are an expert in both Isabelle/HOL and Lean 4 (with Mathlib). Translate the "
@@ -185,12 +191,24 @@ def _parse_root(root_path):
     return m.group(1)
 
 
-def _find_main_theory(entry_dir, session_name):
-    target = _normalize(session_name)
-    candidates = [p for p in entry_dir.rglob("*.thy") if _normalize(p.stem) == target]
-    if not candidates:
-        return None
-    return candidates[0]
+def _parse_theories(root_path):
+    """Local (non-qualified) theory names named directly in ROOT's theories blocks.
+
+    These are the session's entry points -- not necessarily all files in the
+    session, since a listed theory can transitively `imports` others.
+    """
+    text = _COMMENT_RE.sub(" ", root_path.read_text(encoding="utf-8", errors="replace"))
+    names = []
+    for block in _THEORIES_RE.findall(text):
+        for tok in _tokenize(block):
+            if "." not in tok and "/" not in tok:
+                names.append(tok)
+    return names
+
+
+def _find_theory_files(entry_dir, theory_names):
+    thy_by_stem = {_normalize(p.stem): p for p in entry_dir.rglob("*.thy")}
+    return [thy_by_stem[_normalize(n)] for n in theory_names if _normalize(n) in thy_by_stem]
 
 
 def _parse_imports(thy_path):
@@ -199,7 +217,7 @@ def _parse_imports(thy_path):
     return _tokenize(m.group(1)) if m else []
 
 
-def _build_translation_unit(entry_dir, main_thy_path):
+def _build_translation_unit(entry_dir, seed_paths):
     thy_by_stem = {p.stem: p for p in entry_dir.rglob("*.thy")}
     order, visited = [], set()
 
@@ -215,7 +233,8 @@ def _build_translation_unit(entry_dir, main_thy_path):
                 visit(dep)
         order.append(path)
 
-    visit(main_thy_path)
+    for seed in seed_paths:
+        visit(seed)
     return order
 
 
@@ -309,10 +328,11 @@ def transpile_to_lean(dataset_path, source_language="isabelle", *,
         n_attempted += 1
         try:
             session_name = _parse_root(entry_dir / "ROOT")
-            main_thy = _find_main_theory(entry_dir, session_name)
-            if main_thy is None:
-                raise ValueError("no .thy file matches session name")
-            order = _build_translation_unit(entry_dir, main_thy)
+            theory_names = _parse_theories(entry_dir / "ROOT")
+            seeds = _find_theory_files(entry_dir, theory_names)
+            if not seeds:
+                raise ValueError("no .thy files match ROOT theories list")
+            order = _build_translation_unit(entry_dir, seeds)
             source = _assemble_source(order)
         except Exception as exc:
             manifest[name] = {"status": "dropped", "attempts": 0, "timestamp": _now(),
@@ -326,12 +346,13 @@ def transpile_to_lean(dataset_path, source_language="isabelle", *,
         if ok:
             entry_out = out_dir / f"{name}_converted"
             entry_out.mkdir(parents=True, exist_ok=True)
-            lean_path = entry_out / f"{main_thy.stem}.lean"
+            lean_path = entry_out / f"{name}.lean"
             lean_path.write_text(lean_code)
             (entry_out / "source.isa.txt").write_text(source)
             (entry_out / "meta.json").write_text(json.dumps({
                 "entry": name, "session_name": session_name,
                 "source_language": source_language,
+                "theory_names": theory_names,
                 "files_merged": [p.name for p in order],
             }, indent=2))
             manifest[name] = {"status": "success", "attempts": attempts, "timestamp": _now(),
