@@ -1,3 +1,5 @@
+# TODO: Change the default out_dir val to make it more generic (remove the .parent); currently, it is specific to AFP
+
 import json
 import re
 from collections import namedtuple
