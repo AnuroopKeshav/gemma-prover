@@ -10,7 +10,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 REQUIRED_ENV_VARS = [
     "HF_TOKEN",
     "API_PROVIDER",
-    "MODEL",
+    "MODEL_NAME",
     "OPENAI_API_KEY",
     "ANTHROPIC_API_KEY",
     "OPENROUTER_API_KEY",
