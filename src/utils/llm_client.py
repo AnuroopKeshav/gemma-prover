@@ -29,7 +29,7 @@ def _chat_completions(system, user, model, temperature, max_tokens, api_key, bas
     from openai import OpenAI
     client = OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
     resp = client.chat.completions.create(
-        model=model, temperature=temperature, max_tokens=max_tokens,
+        model=model, temperature=temperature,
         messages=[{"role": "system", "content": system},
                   {"role": "user", "content": _flatten(user)}])
     return resp.choices[0].message.content
