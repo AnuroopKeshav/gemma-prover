@@ -1,0 +1,16 @@
+[project]
+name = "gemma-prover"
+description = "Experimentation with diffusion-gemma for theorem proving"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "python-dotenv",
+    "datasets",
+    "openai",
+    "anthropic",
+    "huggingface-hub",
+    "pantograph @ git+https://github.com/stanford-centaur/PyPantograph.git",
+]
+
+# pantograph -- Used for validate_lean()
+# still needs a working Lean4 + Mathlib + Pantograph toolchain on the system.
