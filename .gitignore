@@ -19,3 +19,6 @@ src/notebooks/.ipynb_checkpoints/
 
 # Datasets
 data/
+
+# LEAN out
+out/
