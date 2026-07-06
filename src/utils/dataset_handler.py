@@ -33,12 +33,25 @@ def _join(*parts):
 
 
 def _split_header(blob):
-    # header = leading run of import/open/set_option/... lines; rest is the body
+    # header = leading run of import/open/set_option/... lines (plus any
+    # leading /- ... -/ block comments, e.g. copyright notices); rest is the body
     lines = blob.split("\n")
-    i = 0
-    while i < len(lines) and (not lines[i].strip()
-                              or lines[i].lstrip().startswith(_HEADER_PREFIXES)):
-        i += 1
+    i, in_comment = 0, False
+    while i < len(lines):
+        stripped = lines[i].strip()
+        if in_comment:
+            if "-/" in stripped:
+                in_comment = False
+            i += 1
+            continue
+        if stripped.startswith("/-"):
+            in_comment = "-/" not in stripped[2:]
+            i += 1
+            continue
+        if not stripped or stripped.startswith(_HEADER_PREFIXES):
+            i += 1
+            continue
+        break
     return _join("\n".join(lines[:i])), _join("\n".join(lines[i:]))
 
 
