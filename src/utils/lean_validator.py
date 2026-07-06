@@ -1,4 +1,6 @@
 def new_server(**kwargs):
+    import nest_asyncio
+    nest_asyncio.apply()  # allow pantograph's sync init to run inside an already-running loop (e.g. Jupyter)
     import pantograph
     return pantograph.Server(**kwargs)
 

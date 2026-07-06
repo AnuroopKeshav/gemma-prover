@@ -10,6 +10,7 @@ dependencies = [
     "anthropic",
     "huggingface-hub",
     "pantograph @ git+https://github.com/stanford-centaur/PyPantograph.git",
+    "nest_asyncio",
 ]
 
 # pantograph -- Used for validate_lean()
