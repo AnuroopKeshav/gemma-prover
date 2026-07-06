@@ -267,7 +267,7 @@ def _build_retry_prompt(source_block, prev_attempt, error_text):
     ]
 
 
-def _transpile_entry(source, source_language, provider, model, max_retries):
+def _transpile_entry(name, source, source_language, provider, model, max_retries):
     server = new_server()
     source_block = {
         "type": "text",
@@ -281,7 +281,10 @@ def _transpile_entry(source, source_language, provider, model, max_retries):
                                            cache_system=True))
         ok, err = validate_lean(server, lean_code)
         if ok:
+            print(f"[transpile_to_lean] verified {name} (attempt {attempt})")
             return lean_code, True, "", attempt
+        print(f"[transpile_to_lean] {name} attempt {attempt} failed: "
+              f"{err.splitlines()[0] if err else '(no error text)'}; retrying")
         user_prompt = _build_retry_prompt(source_block, lean_code, err)
     return lean_code, False, err, attempt
 
@@ -320,8 +323,13 @@ def transpile_to_lean(dataset_path, source_language="isabelle", *,
     manifest_path = Path(manifest_path) if manifest_path else out_dir / _LEAN_MANIFEST_NAME
     manifest = _load_manifest(manifest_path)
 
+    entries = list(_iter_entries(dataset_path))
+    n_remaining = sum(1 for e in entries if e.name not in manifest)
+    print(f"[transpile_to_lean] found {len(entries)} entries "
+          f"({n_remaining} remaining, {len(entries) - n_remaining} already in manifest)")
+
     n_success, n_attempted = 0, 0
-    for entry_dir in _iter_entries(dataset_path):
+    for entry_dir in entries:
         name = entry_dir.name
         if name in manifest:
             continue
@@ -341,7 +349,7 @@ def transpile_to_lean(dataset_path, source_language="isabelle", *,
             continue
 
         lean_code, ok, err, attempts = _transpile_entry(
-            source, source_language, provider, model, max_retries)
+            name, source, source_language, provider, model, max_retries)
 
         if ok:
             entry_out = out_dir / f"{name}_converted"
@@ -358,6 +366,7 @@ def transpile_to_lean(dataset_path, source_language="isabelle", *,
             manifest[name] = {"status": "success", "attempts": attempts, "timestamp": _now(),
                               "output_path": str(lean_path.relative_to(_DATA_DIR)), "error": None}
             n_success += 1
+            print(f"[transpile_to_lean] completed {name} -> {lean_path.relative_to(_DATA_DIR)}")
         else:
             print(f"[transpile_to_lean] dropped {name} after {attempts} attempts: "
                   f"{err.splitlines()[0] if err else '(no error text)'}")
