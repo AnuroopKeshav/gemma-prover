@@ -3,10 +3,16 @@ import os
 _OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 
+def _is_reasoning_model():
+    return os.environ.get("REASONING_MODEL", "").strip().lower() in ("1", "true", "yes")
+
+
 def call_llm(system, user, *, provider=None, model=None, temperature=0.0, max_tokens=8192,
              cache_system=False):
     provider = provider or os.environ["API_PROVIDER"]
     model = model or os.environ["MODEL_NAME"]
+    if _is_reasoning_model():
+        temperature = 1.0
     if provider == "openai":
         return _chat_completions(system, user, model, temperature, max_tokens,
                                   api_key=os.environ["OPENAI_API_KEY"], base_url=None)
